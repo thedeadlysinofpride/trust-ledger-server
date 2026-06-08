@@ -2,6 +2,7 @@
 
 pub mod prelude;
 
+pub mod contributions;
 pub mod groups;
 pub mod members;
 pub mod users;
