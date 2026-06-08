@@ -3,3 +3,4 @@ mod prepare_data;
 
 pub mod health;
 pub mod dashboard;
+pub mod groups;
