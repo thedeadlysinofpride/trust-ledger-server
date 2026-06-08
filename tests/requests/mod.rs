@@ -6,3 +6,4 @@ pub mod dashboard;
 pub mod groups;
 pub mod transactions;
 pub mod payout;
+pub mod ussd;
