@@ -4,7 +4,7 @@ use sea_orm_migration::prelude::*;
 pub struct Migration;
 
 #[derive(DeriveIden)]
-enum Groups {
+pub enum Groups {
     Table,
     Id,
     Name,
