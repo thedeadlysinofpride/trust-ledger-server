@@ -5,4 +5,5 @@ pub mod prelude;
 pub mod contributions;
 pub mod groups;
 pub mod members;
+pub mod transactions;
 pub mod users;

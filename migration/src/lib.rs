@@ -6,6 +6,7 @@ mod m20220101_000001_users;
 mod m20260608_022801_groups_table;
 mod m20260608_024127_members_table;
 mod m20260608_025454_contributions_table;
+mod m20260608_030134_transactions_table;
 pub struct Migrator;
 
 #[async_trait::async_trait]
@@ -16,6 +17,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260608_022801_groups_table::Migration),
             Box::new(m20260608_024127_members_table::Migration),
             Box::new(m20260608_025454_contributions_table::Migration),
+            Box::new(m20260608_030134_transactions_table::Migration),
             // inject-above (do not remove this comment)
         ]
     }
