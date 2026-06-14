@@ -9,3 +9,4 @@ pub mod ussd;
 pub mod ussd_moolre;
 pub mod webhooks;
 pub mod member_auth;
+pub mod member_dashboard;

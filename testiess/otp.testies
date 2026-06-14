@@ -2,10 +2,13 @@ first request OTP
 
 curl -X POST http://localhost:5150/api/member/auth/send-otp \
   -H "Content-Type: application/json" \
-  -d '{"phone": "0532423078"}'
+  -d '{"phone": "0532423078"}' | jq
 
 verify otp - check logs for the debug otp
 
 curl -X POST http://localhost:5150/api/member/auth/verify \
   -H "Content-Type: application/json" \
-  -d '{"phone": "0532423078", "code": "528918"}'
+  -d '{"phone": "0532423078", "code": "418491"}' | jq
+
+curl -X GET http://localhost:5150/api/member/dashboard \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" | jq
