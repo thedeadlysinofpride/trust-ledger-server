@@ -6,3 +6,6 @@ pub mod groups;
 pub mod transactions;
 pub mod payout;
 pub mod ussd;
+pub mod ussd_moolre;
+pub mod webhooks;
+pub mod member_auth;

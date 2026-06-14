@@ -11,13 +11,15 @@ pub struct Model {
     pub name: String,
     pub phone: String,
     pub trust_score: Option<i32>,
-    pub group_id: i32,
+    pub group_id: Option<i32>,
     pub total_contributed: Option<Decimal>,
     pub on_time_payments: Option<i32>,
     pub total_payments: Option<i32>,
     pub last_missed_payment: Option<DateTime>,
     pub status: Option<String>,
     pub joined_at: Option<DateTime>,
+    pub otp_code: Option<String>,
+    pub otp_expires_at: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

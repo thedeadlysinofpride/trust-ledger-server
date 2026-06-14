@@ -1,12 +1,14 @@
 -- Insert a group
-INSERT INTO GROUPS(name,
-code,
-description,
-contribution_amount,
-frequency,
-next_payout_date,
-is_active,
-created_at)
+INSERT INTO GROUPS(
+  name,
+  code,
+  description,
+  contribution_amount,
+  frequency,
+  next_payout_date,
+  is_active,
+  created_at
+)
 VALUES('Makola Traders',
 'MKL',
 'Market women savings group',
@@ -16,15 +18,17 @@ VALUES('Makola Traders',
 TRUE,
 now());
 -- Insert members for that group
-INSERT INTO members(name,
-phone,
-trust_score,
-group_id,
-total_contributed,
-on_time_payments,
-total_payments,
-status,
-joined_at)
+INSERT INTO members(
+  name,
+  phone,
+  trust_score,
+  group_id,
+  total_contributed,
+  on_time_payments,
+  total_payments,
+  status,
+  joined_at
+)
 VALUES('Ama Mensah',
 '0241234567',
 100,
@@ -33,33 +37,39 @@ VALUES('Ama Mensah',
 26,
 26,
 'active',
-now())('Adwoa Asante',
-'0242345678',
-85,
-1,
-2210,
-22,
-26,
-'active',
-now()),
-('Akua Boateng',
-'0243456789',
-62,
-1,
-1560,
-16,
-26,
-'active',
-now());
+now())(
+  'Adwoa Asante',
+  '0242345678',
+  85,
+  1,
+  2210,
+  22,
+  26,
+  'active',
+  now()
+),
+(
+  'Akua Boateng',
+  '0243456789',
+  62,
+  1,
+  1560,
+  16,
+  26,
+  'active',
+  now()
+);
 -- Insert a second group
-INSERT INTO GROUPS(name,
-code,
-description,
-contribution_amount,
-frequency,
-next_payout_date,
-is_active,
-created_at)
+INSERT INTO GROUPS(
+  name,
+  code,
+  description,
+  contribution_amount,
+  frequency,
+  next_payout_date,
+  is_active,
+  created_at
+)
 VALUES('Abossey Okai Spare Parts',
 'AOS',
 'Spare parts dealers',
@@ -69,15 +79,17 @@ VALUES('Abossey Okai Spare Parts',
 TRUE,
 now());
 -- Insert members for second group
-INSERT INTO members(name,
-phone,
-trust_score,
-group_id,
-total_contributed,
-on_time_payments,
-total_payments,
-status,
-joined_at)
+INSERT INTO members(
+  name,
+  phone,
+  trust_score,
+  group_id,
+  total_contributed,
+  on_time_payments,
+  total_payments,
+  status,
+  joined_at
+)
 VALUES('Kwame Asante',
 '0201234567',
 100,
@@ -86,15 +98,17 @@ VALUES('Kwame Asante',
 30,
 30,
 'active',
-now())('Kofi Boateng',
-'0202345678',
-73,
-2,
-4380,
-22,
-30,
-'active',
-now());
+now())(
+  'Kofi Boateng',
+  '0202345678',
+  73,
+  2,
+  4380,
+  22,
+  30,
+  'active',
+  now()
+);
 -- Update group member counts
 UPDATE GROUPS
 SET member_count = 3
@@ -122,13 +136,95 @@ group_name,
 amount,
 type,
 status DATE)
+VALUES(1,
+'Ama Mensah',
+1,
+'Makola Traders',
+100,
+'contribution',
+'completed',
+now());
+-- Check existing groups
+SELECT
+  id,
+  name,
+  member_count,
+  total_contributed
+FROM
+  GROUPS;
+-- Insert test group (use next available ID)
+INSERT INTO GROUPS(
+  id,
+  name,
+  code,
+  description,
+  contribution_amount,
+  frequency,
+  next_payout_date,
+  is_active,
+  created_at
+)
 VALUES(
+  3,
+  'Test Payout Group',
+  'TEST',
+  'For testing payouts',
   1,
-  'Ama Mensah',
-  1,
-  'Makola Traders',
-  100,
-  'contribution',
-  'completed',
+  'weekly',
+  '2026-06-01 00:00:00',
+  TRUE,
   now()
 );
+-- Insert test members
+INSERT INTO members(
+  name,
+  phone,
+  trust_score,
+  group_id,
+  total_contributed,
+  on_time_payments,
+  total_payments,
+  status,
+  joined_at
+)
+VALUES(
+  'Test User 1',
+  '0532423078',
+  100,
+  3,
+  5,
+  5,
+  5,
+  'active',
+  now()
+),
+(
+  'Test User 2',
+  '0241234567',
+  100,
+  3,
+  3,
+  3,
+  3,
+  'active',
+  now()
+);
+-- Update group counts
+UPDATE GROUPS
+SET member_count = 2,
+total_contributed = 8
+WHERE
+  id = 3;
+-- Verify
+SELECT
+  *
+FROM
+  GROUPS
+WHERE
+  id = 3;
+SELECT
+  *
+FROM
+  members
+WHERE
+  group_id = 3;

@@ -1,0 +1,11 @@
+first request OTP
+
+curl -X POST http://localhost:5150/api/member/auth/send-otp \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "0532423078"}'
+
+verify otp - check logs for the debug otp
+
+curl -X POST http://localhost:5150/api/member/auth/verify \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "0532423078", "code": "528918"}'
