@@ -228,3 +228,9 @@ FROM
   members
 WHERE
   group_id = 3;
+
+INSERT INTO trust_score_history (member_id, score, change, reason, date, created_at)
+VALUES 
+  (9, 100, 0, 'Initial trust score', '2026-06-01 00:00:00', now()),
+  (9, 100, 0, 'On-time contribution', '2026-06-07 00:00:00', now()),
+  (9, 100, 0, 'On-time contribution', '2026-06-14 00:00:00', now());

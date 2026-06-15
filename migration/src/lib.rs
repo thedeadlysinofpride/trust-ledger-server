@@ -11,6 +11,7 @@ mod m20260614_142035_add_otp_to_members;
 mod m20260614_154403_make_group_id_optional;
 mod m20260615_092957_savings_goals;
 mod m20260615_093113_savings_deposits;
+mod m20260615_094954_trust_score_history;
 pub struct Migrator;
 
 #[async_trait::async_trait]
@@ -26,6 +27,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260614_154403_make_group_id_optional::Migration),
             Box::new(m20260615_092957_savings_goals::Migration),
             Box::new(m20260615_093113_savings_deposits::Migration),
+            Box::new(m20260615_094954_trust_score_history::Migration),
             // inject-above (do not remove this comment)
         ]
     }

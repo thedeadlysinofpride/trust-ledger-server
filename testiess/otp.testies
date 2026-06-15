@@ -61,3 +61,5 @@ curl -X POST http://localhost:5150/api/member/savings/deposit \
 curl -X POST http://localhost:5150/api/member/savings/withdraw/1 \
   -H "Authorization: Bearer $TOKEN" | jq
 
+curl -X GET http://localhost:5150/api/member/trust-score/history \
+  -H "Authorization: Bearer $TOKEN" | jq

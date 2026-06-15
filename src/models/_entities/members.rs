@@ -38,6 +38,8 @@ pub enum Relation {
     SavingsGoals,
     #[sea_orm(has_many = "super::transactions::Entity")]
     Transactions,
+    #[sea_orm(has_many = "super::trust_score_history::Entity")]
+    TrustScoreHistory,
 }
 
 impl Related<super::contributions::Entity> for Entity {
@@ -61,5 +63,11 @@ impl Related<super::savings_goals::Entity> for Entity {
 impl Related<super::transactions::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Transactions.def()
+    }
+}
+
+impl Related<super::trust_score_history::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TrustScoreHistory.def()
     }
 }

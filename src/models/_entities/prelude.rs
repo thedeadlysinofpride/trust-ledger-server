@@ -6,4 +6,5 @@ pub use super::members::Entity as Members;
 pub use super::savings_deposits::Entity as SavingsDeposits;
 pub use super::savings_goals::Entity as SavingsGoals;
 pub use super::transactions::Entity as Transactions;
+pub use super::trust_score_history::Entity as TrustScoreHistory;
 pub use super::users::Entity as Users;

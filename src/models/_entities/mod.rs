@@ -8,4 +8,5 @@ pub mod members;
 pub mod savings_deposits;
 pub mod savings_goals;
 pub mod transactions;
+pub mod trust_score_history;
 pub mod users;
