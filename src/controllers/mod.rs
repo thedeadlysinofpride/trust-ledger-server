@@ -10,3 +10,5 @@ pub mod ussd_moolre;
 pub mod webhooks;
 pub mod member_auth;
 pub mod member_dashboard;
+pub mod member_groups;
+pub mod member_contribute;

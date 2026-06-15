@@ -8,7 +8,25 @@ verify otp - check logs for the debug otp
 
 curl -X POST http://localhost:5150/api/member/auth/verify \
   -H "Content-Type: application/json" \
-  -d '{"phone": "0532423078", "code": "418491"}' | jq
+  -d '{"phone": "0532423078", "code": "215857"}' | jq -r '.token'
+
+TOKEN="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJwaWQiOiI5IiwiZXhwIjoxNzgyMTIwMjg5fQ.j1D7j0aM599HGlDex2qa7cZeuz9LDh0Y0pFf19FVZf4whAmMcLRGeW5FYIcxgOrjlbIGgKgHIL4xqzi9sBLMrg"
 
 curl -X GET http://localhost:5150/api/member/dashboard \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" | jq
+  -H "Authorization: Bearer $TOKEN" | jq
+
+curl -X GET http://localhost:5150/api/groups | jq
+
+curl -X POST http://localhost:5150/api/member/groups/join \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"code": "MKL"}' | jq
+
+curl -X GET http://localhost:5150/api/member/groups \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+curl -X GET http://localhost:5150/api/member/dashboard \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+curl -X GET http://localhost:5150/api/member/groups/1 \
+  -H "Authorization: Bearer $TOKEN" | jq

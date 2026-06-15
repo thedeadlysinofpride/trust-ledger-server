@@ -5162,6 +5162,7 @@ dependencies = [
  "insta",
  "loco-rs",
  "migration",
+ "num-traits",
  "once_cell",
  "rand 0.10.1",
  "regex",

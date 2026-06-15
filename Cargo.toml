@@ -38,6 +38,7 @@ include_dir = { version = "0.7" }
 once_cell = "1.21.4"
 reqwest = { version = "0.13.4", features = ["json"] }
 rand = "0.10.1"
+num-traits = "0.2.19"
 
 [[bin]]
 name = "trust_ledger_server-cli"
