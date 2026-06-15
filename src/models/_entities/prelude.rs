@@ -3,5 +3,7 @@
 pub use super::contributions::Entity as Contributions;
 pub use super::groups::Entity as Groups;
 pub use super::members::Entity as Members;
+pub use super::savings_deposits::Entity as SavingsDeposits;
+pub use super::savings_goals::Entity as SavingsGoals;
 pub use super::transactions::Entity as Transactions;
 pub use super::users::Entity as Users;

@@ -12,3 +12,4 @@ pub mod member_auth;
 pub mod member_dashboard;
 pub mod member_groups;
 pub mod member_contribute;
+pub mod member_savings;

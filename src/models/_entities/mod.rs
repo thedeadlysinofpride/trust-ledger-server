@@ -5,5 +5,7 @@ pub mod prelude;
 pub mod contributions;
 pub mod groups;
 pub mod members;
+pub mod savings_deposits;
+pub mod savings_goals;
 pub mod transactions;
 pub mod users;

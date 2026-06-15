@@ -8,9 +8,9 @@ verify otp - check logs for the debug otp
 
 curl -X POST http://localhost:5150/api/member/auth/verify \
   -H "Content-Type: application/json" \
-  -d '{"phone": "0532423078", "code": "215857"}' | jq -r '.token'
+  -d '{"phone": "0532423078", "code": "324435"}' | jq -r '.token'
 
-TOKEN="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJwaWQiOiI5IiwiZXhwIjoxNzgyMTIwMjg5fQ.j1D7j0aM599HGlDex2qa7cZeuz9LDh0Y0pFf19FVZf4whAmMcLRGeW5FYIcxgOrjlbIGgKgHIL4xqzi9sBLMrg"
+TOKEN="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJwaWQiOiI5IiwiZXhwIjoxNzgyMTIxNDUxfQ.Erl9c6laiObADidVTF99MbbuBzCyvukcBEaXbAcnmAVOspZk5r6JWLJ7XNkq9lt7IOWow5eEzavcUyBpFZEGhw"
 
 curl -X GET http://localhost:5150/api/member/dashboard \
   -H "Authorization: Bearer $TOKEN" | jq
@@ -30,3 +30,34 @@ curl -X GET http://localhost:5150/api/member/dashboard \
 
 curl -X GET http://localhost:5150/api/member/groups/1 \
   -H "Authorization: Bearer $TOKEN" | jq
+
+
+# Create a savings goal
+curl -X POST http://localhost:5150/api/member/savings \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "New Phone",
+    "target_amount": 2000,
+    "duration_days": 90,
+    "frequency": "weekly",
+    "mode": "loose"
+  }' | jq
+
+# List savings goals
+curl -X GET http://localhost:5150/api/member/savings \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+# Deposit to savings goal
+curl -X POST http://localhost:5150/api/member/savings/deposit \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "goal_id": 1,
+    "amount": 100
+  }' | jq
+
+# Withdraw from savings goal (only if mode is loose or goal is completed)
+curl -X POST http://localhost:5150/api/member/savings/withdraw/1 \
+  -H "Authorization: Bearer $TOKEN" | jq
+
