@@ -8,9 +8,9 @@ verify otp - check logs for the debug otp
 
 curl -X POST http://localhost:5150/api/member/auth/verify \
   -H "Content-Type: application/json" \
-  -d '{"phone": "0532423078", "code": "324435"}' | jq -r '.token'
+  -d '{"phone": "0532423078", "code": "491700"}' | jq -r '.token'
 
-TOKEN="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJwaWQiOiI5IiwiZXhwIjoxNzgyMTIxNDUxfQ.Erl9c6laiObADidVTF99MbbuBzCyvukcBEaXbAcnmAVOspZk5r6JWLJ7XNkq9lt7IOWow5eEzavcUyBpFZEGhw"
+TOKEN="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJwaWQiOiI5IiwiZXhwIjoxNzgyMTIyODcwfQ.XNQwn45N2Ye1550ErNZHVuXmVT3bb9APtMZMeh41dNV-wOMAi4QxRbucTTuJAZc5o2viFMbo2c2UtX2UWklGIA"
 
 curl -X GET http://localhost:5150/api/member/dashboard \
   -H "Authorization: Bearer $TOKEN" | jq
@@ -62,4 +62,20 @@ curl -X POST http://localhost:5150/api/member/savings/withdraw/1 \
   -H "Authorization: Bearer $TOKEN" | jq
 
 curl -X GET http://localhost:5150/api/member/trust-score/history \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+# Get transactions summary
+curl -X GET http://localhost:5150/api/member/transactions/summary \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+# Get paginated transactions list
+curl -X GET http://localhost:5150/api/member/transactions?page=1&per_page=10 \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+# Filter by type (contributions only)
+curl -X GET "http://localhost:5150/api/member/transactions?type=contribution" \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+# Filter by status
+curl -X GET "http://localhost:5150/api/member/transactions?status=completed" \
   -H "Authorization: Bearer $TOKEN" | jq
