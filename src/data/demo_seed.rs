@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use chrono::{Duration, NaiveDateTime, Utc};
-use loco_rs::Result;
+use loco_rs::{Error, Result};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder, TryIntoModel,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DatabaseConnection,
+    EntityTrait, QueryFilter, QueryOrder, TransactionTrait, TryIntoModel,
 };
 
 use crate::models::{
@@ -374,30 +374,37 @@ const TRANSACTIONS: [TransactionSeed; 20] = [
 
 /// Populate the non-production demonstration dataset without touching unrelated rows.
 pub async fn run(db: &DatabaseConnection) -> Result<()> {
-    let today = Utc::now()
-        .date_naive()
-        .and_hms_opt(0, 0, 0)
-        .expect("midnight is a valid time");
-
+    let today = seed_anchor();
     ensure_admin(db).await?;
 
+    let transaction = db.begin().await?;
     let mut group_models = HashMap::new();
     for seed in &GROUPS {
-        let model = upsert_group(db, seed, today).await?;
+        let model = upsert_group(&transaction, seed, today).await?;
         group_models.insert(seed.code, model);
     }
 
     let mut member_models = HashMap::new();
     for seed in &MEMBERS {
-        let group = &group_models[seed.group_code];
-        let model = upsert_member(db, seed, group.id, today).await?;
+        let group = group_for(&group_models, seed.group_code)?;
+        let model = upsert_member(&transaction, seed, group.id, today).await?;
         member_models.insert((seed.group_code, seed.phone), model);
     }
 
-    recompute_group_totals(db, &mut group_models).await?;
-    replace_demo_transactions(db, today, &group_models, &member_models).await?;
+    recompute_group_totals(&transaction, &mut group_models).await?;
+    replace_demo_transactions(&transaction, today, &group_models, &member_models).await?;
+    transaction.commit().await?;
 
     Ok(())
+}
+
+/// Anchor relative demo dates at midnight UTC so reruns within a seed day are
+/// identical while running the seed on a later day intentionally refreshes recency.
+fn seed_anchor() -> NaiveDateTime {
+    Utc::now()
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .expect("midnight is a valid time")
 }
 
 /// Compatibility entry point for existing seed callers.
@@ -406,28 +413,56 @@ pub async fn seed(db: &DatabaseConnection) -> Result<()> {
 }
 
 async fn ensure_admin(db: &DatabaseConnection) -> Result<()> {
-    let exists = users::Entity::find()
+    let existing = users::Entity::find()
         .filter(users::Column::Email.eq("admin@trustledger.gh"))
         .one(db)
-        .await?
-        .is_some();
-
-    if !exists {
-        User::create_with_password(
-            db,
-            &RegisterParams {
-                email: "admin@trustledger.gh".to_owned(),
-                password: "Demo@2026".to_owned(),
-                name: "TrustLedger Demo Admin".to_owned(),
-            },
-        )
         .await?;
+
+    if let Some(user) = existing {
+        if !user.verify_password("Demo@2026") {
+            return Err(Error::Message(
+                "demo admin admin@trustledger.gh exists with credentials not owned by the demo seed"
+                    .to_owned(),
+            ));
+        }
+        return Ok(());
     }
+
+    User::create_with_password(
+        db,
+        &RegisterParams {
+            email: "admin@trustledger.gh".to_owned(),
+            password: "Demo@2026".to_owned(),
+            name: "TrustLedger Demo Admin".to_owned(),
+        },
+    )
+    .await?;
     Ok(())
 }
 
-async fn upsert_group(
-    db: &DatabaseConnection,
+fn group_for<'a>(
+    groups_by_code: &'a HashMap<&'static str, groups::Model>,
+    code: &str,
+) -> Result<&'a groups::Model> {
+    groups_by_code
+        .get(code)
+        .ok_or_else(|| Error::Message(format!("demo seed group code {code} was not loaded")))
+}
+
+fn member_for<'a>(
+    members_by_key: &'a HashMap<(&'static str, &'static str), members::Model>,
+    group_code: &'static str,
+    phone: &'static str,
+) -> Result<&'a members::Model> {
+    members_by_key.get(&(group_code, phone)).ok_or_else(|| {
+        Error::Message(format!(
+            "demo seed member {phone} in group {group_code} was not loaded"
+        ))
+    })
+}
+
+async fn upsert_group<C: ConnectionTrait>(
+    db: &C,
     seed: &GroupSeed,
     today: NaiveDateTime,
 ) -> Result<groups::Model> {
@@ -447,8 +482,8 @@ async fn upsert_group(
     Ok(active.save(db).await?.try_into_model()?)
 }
 
-async fn upsert_member(
-    db: &DatabaseConnection,
+async fn upsert_member<C: ConnectionTrait>(
+    db: &C,
     seed: &MemberSeed,
     group_id: i32,
     today: NaiveDateTime,
@@ -457,9 +492,20 @@ async fn upsert_member(
         .filter(members::Column::Phone.eq(seed.phone))
         .filter(members::Column::GroupId.eq(group_id))
         .order_by_asc(members::Column::Id)
-        .one(db)
+        .all(db)
         .await?;
-    let mut active: members::ActiveModel = existing.map(Into::into).unwrap_or_default();
+    if existing.len() > 1 {
+        return Err(Error::Message(format!(
+            "demo seed found {} members for duplicate key (group_id: {group_id}, phone: {})",
+            existing.len(),
+            seed.phone
+        )));
+    }
+    let mut active: members::ActiveModel = existing
+        .into_iter()
+        .next()
+        .map(Into::into)
+        .unwrap_or_default();
     active.name = Set(seed.name.to_owned());
     active.phone = Set(seed.phone.to_owned());
     active.trust_score = Set(Some(seed.trust_score));
@@ -477,8 +523,8 @@ async fn upsert_member(
     Ok(active.save(db).await?.try_into_model()?)
 }
 
-async fn recompute_group_totals(
-    db: &DatabaseConnection,
+async fn recompute_group_totals<C: ConnectionTrait>(
+    db: &C,
     groups_by_code: &mut HashMap<&'static str, groups::Model>,
 ) -> Result<()> {
     for group in groups_by_code.values_mut() {
@@ -499,8 +545,8 @@ async fn recompute_group_totals(
     Ok(())
 }
 
-async fn replace_demo_transactions(
-    db: &DatabaseConnection,
+async fn replace_demo_transactions<C: ConnectionTrait>(
+    db: &C,
     today: NaiveDateTime,
     groups_by_code: &HashMap<&'static str, groups::Model>,
     members_by_key: &HashMap<(&'static str, &'static str), members::Model>,
@@ -526,8 +572,8 @@ async fn replace_demo_transactions(
         .await?;
 
     for seed in &TRANSACTIONS {
-        let group = &groups_by_code[seed.group_code];
-        let member = &members_by_key[&(seed.group_code, seed.member_phone)];
+        let group = group_for(groups_by_code, seed.group_code)?;
+        let member = member_for(members_by_key, seed.group_code, seed.member_phone)?;
         let mut active = transactions::ActiveModel {
             member_id: Set(member.id),
             member_name: Set(member.name.clone()),
@@ -546,4 +592,29 @@ async fn replace_demo_transactions(
         active.insert(db).await?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use chrono::Timelike;
+
+    use super::{group_for, seed_anchor};
+
+    #[test]
+    fn seed_anchor_is_the_current_utc_day_boundary() {
+        let anchor = seed_anchor();
+
+        assert_eq!((anchor.hour(), anchor.minute(), anchor.second()), (0, 0, 0));
+    }
+
+    #[test]
+    fn missing_group_lookup_returns_a_descriptive_error() {
+        let groups = HashMap::new();
+
+        let error = group_for(&groups, "UNKNOWN").expect_err("missing group should fail");
+
+        assert!(error.to_string().contains("UNKNOWN"));
+    }
 }
