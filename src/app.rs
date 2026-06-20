@@ -14,7 +14,10 @@ use migration::Migrator;
 use std::path::Path;
 
 #[allow(unused_imports)]
-use crate::{controllers, models::_entities::users, tasks, workers::downloader::DownloadWorker};
+use crate::{
+    controllers, data::demo_seed, models::_entities::users, tasks,
+    workers::downloader::DownloadWorker,
+};
 
 pub struct App;
 #[async_trait]
@@ -71,6 +74,7 @@ impl Hooks for App {
     async fn seed(ctx: &AppContext, base: &Path) -> Result<()> {
         db::seed::<users::ActiveModel>(&ctx.db, &base.join("users.yaml").display().to_string())
             .await?;
+        demo_seed::run(&ctx.db).await?;
         Ok(())
     }
 }
