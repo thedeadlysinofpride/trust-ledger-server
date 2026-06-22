@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use crate::models::_entities::{groups, members, transactions};
-use chrono::{Datelike, NaiveDate, Utc};
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, Utc};
 use loco_rs::prelude::*;
 use sea_orm::{EntityTrait, QueryOrder};
 use serde::Serialize;
@@ -55,12 +55,6 @@ struct DashboardResponse {
 }
 
 #[derive(Default)]
-struct GroupTransactionTotals {
-    collected: f64,
-    expected: f64,
-}
-
-#[derive(Default)]
 struct MonthlyTotals {
     contributions: f64,
     payouts: f64,
@@ -102,7 +96,8 @@ pub async fn stats(State(ctx): State<AppContext>) -> Result<Json<impl Serialize>
             .push(member);
     }
 
-    let current_month = Utc::now().date_naive();
+    let now = Utc::now().naive_utc();
+    let current_month = now.date();
     let month_keys: Vec<(i32, u32)> = (0..6)
         .rev()
         .map(|months_ago| month_key(current_month, months_ago))
@@ -112,19 +107,14 @@ pub async fn stats(State(ctx): State<AppContext>) -> Result<Json<impl Serialize>
         .copied()
         .map(|key| (key, MonthlyTotals::default()))
         .collect();
-    let mut group_transaction_totals: HashMap<i32, GroupTransactionTotals> = HashMap::new();
+    let mut transactions_by_group: HashMap<i32, Vec<&transactions::Model>> = HashMap::new();
 
     for transaction in &all_transactions {
         let amount = decimal_to_f64(Some(transaction.amount));
-        if transaction.r#type == "contribution" {
-            let totals = group_transaction_totals
-                .entry(transaction.group_id)
-                .or_default();
-            totals.expected += amount;
-            if transaction.status == "completed" {
-                totals.collected += amount;
-            }
-        }
+        transactions_by_group
+            .entry(transaction.group_id)
+            .or_default()
+            .push(transaction);
 
         if transaction.status != "completed" {
             continue;
@@ -168,14 +158,24 @@ pub async fn stats(State(ctx): State<AppContext>) -> Result<Json<impl Serialize>
     let group_health = all_groups
         .iter()
         .map(|group| {
-            let transaction_totals = group_transaction_totals.get(&group.id);
-            let collection_rate = transaction_totals.map_or(0.0, |totals| {
-                if totals.expected <= 0.0 {
-                    0.0
-                } else {
-                    (totals.collected / totals.expected * 100.0).clamp(0.0, 100.0)
-                }
+            let active_member_count = members_by_group.get(&group.id).map_or(0, |members| {
+                members
+                    .iter()
+                    .filter(|member| member.status.as_deref() == Some("active"))
+                    .count()
             });
+            let group_transactions = transactions_by_group
+                .get(&group.id)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
+            let collection_rate = cycle_collection_rate(
+                &group.frequency,
+                decimal_to_f64(group.contribution_amount),
+                active_member_count,
+                group.id,
+                group_transactions,
+                now,
+            );
             GroupHealth {
                 group_id: group.id,
                 group_name: group.name.clone(),
@@ -186,7 +186,6 @@ pub async fn stats(State(ctx): State<AppContext>) -> Result<Json<impl Serialize>
         })
         .collect();
 
-    let now = Utc::now().naive_utc();
     let next_payout = all_groups
         .iter()
         .filter(|group| group.is_active == Some(true) && group.next_payout_date >= now)
@@ -234,6 +233,60 @@ fn group_score(members: Option<&Vec<&members::Model>>) -> i32 {
     })
 }
 
+fn cycle_collection_rate(
+    frequency: &str,
+    contribution_amount: f64,
+    active_member_count: usize,
+    group_id: i32,
+    transactions: &[&transactions::Model],
+    now: NaiveDateTime,
+) -> f64 {
+    let expected = contribution_amount * active_member_count as f64;
+    if expected <= 0.0 {
+        return 0.0;
+    }
+
+    let (cycle_start, cycle_end) = cycle_bounds(frequency, now);
+    let collected: f64 = transactions
+        .iter()
+        .filter(|transaction| {
+            transaction.group_id == group_id
+                && transaction.r#type == "contribution"
+                && transaction.status == "completed"
+                && transaction
+                    .date
+                    .is_some_and(|date| date >= cycle_start && date < cycle_end)
+        })
+        .map(|transaction| decimal_to_f64(Some(transaction.amount)))
+        .sum();
+
+    (collected / expected * 100.0).clamp(0.0, 100.0)
+}
+
+fn cycle_bounds(frequency: &str, now: NaiveDateTime) -> (NaiveDateTime, NaiveDateTime) {
+    let current_date = now.date();
+    let start_date = if frequency == "weekly" {
+        current_date - Duration::days(i64::from(current_date.weekday().num_days_from_monday()))
+    } else {
+        NaiveDate::from_ymd_opt(current_date.year(), current_date.month(), 1)
+            .expect("the first day of the current month is valid")
+    };
+    let end_date = if frequency == "weekly" {
+        start_date + Duration::days(7)
+    } else {
+        let (year, month) = if start_date.month() == 12 {
+            (start_date.year() + 1, 1)
+        } else {
+            (start_date.year(), start_date.month() + 1)
+        };
+        NaiveDate::from_ymd_opt(year, month, 1).expect("the first day of the next month is valid")
+    };
+    (
+        start_date.and_hms_opt(0, 0, 0).expect("midnight is valid"),
+        end_date.and_hms_opt(0, 0, 0).expect("midnight is valid"),
+    )
+}
+
 fn month_key(current: NaiveDate, months_ago: u32) -> (i32, u32) {
     let month_index = current.year() * 12 + current.month0() as i32 - months_ago as i32;
     (
@@ -244,4 +297,88 @@ fn month_key(current: NaiveDate, months_ago: u32) -> (i32, u32) {
 
 pub fn routes() -> Routes {
     Routes::new().prefix("api/dashboards/").add("/", get(stats))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+
+    fn transaction(
+        id: i32,
+        group_id: i32,
+        amount: i64,
+        kind: &str,
+        status: &str,
+        date: chrono::NaiveDateTime,
+    ) -> transactions::Model {
+        transactions::Model {
+            id,
+            member_id: id,
+            member_name: format!("Member {id}"),
+            group_id,
+            group_name: format!("Group {group_id}"),
+            amount: amount.into(),
+            r#type: kind.to_owned(),
+            status: status.to_owned(),
+            moolre_ref: None,
+            date: Some(date),
+        }
+    }
+
+    fn at(year: i32, month: u32, day: u32) -> chrono::NaiveDateTime {
+        NaiveDate::from_ymd_opt(year, month, day)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap()
+    }
+
+    #[test]
+    fn monthly_collection_rate_excludes_historical_pending_and_unrelated_values() {
+        let now = at(2026, 6, 22);
+        let transactions = [
+            transaction(1, 7, 100, "contribution", "completed", at(2026, 6, 5)),
+            transaction(2, 7, 500, "contribution", "completed", at(2026, 5, 31)),
+            transaction(3, 7, 100, "contribution", "pending", at(2026, 6, 6)),
+            transaction(4, 7, 900, "payout", "completed", at(2026, 6, 7)),
+            transaction(5, 8, 900, "contribution", "completed", at(2026, 6, 8)),
+        ];
+
+        let transaction_refs = transactions.iter().collect::<Vec<_>>();
+        assert_eq!(
+            cycle_collection_rate("monthly", 50.0, 4, 7, &transaction_refs, now),
+            50.0
+        );
+    }
+
+    #[test]
+    fn weekly_collection_rate_uses_the_current_monday_to_monday_window() {
+        let now = at(2026, 6, 24);
+        let transactions = [
+            transaction(1, 7, 75, "contribution", "completed", at(2026, 6, 22)),
+            transaction(2, 7, 75, "contribution", "completed", at(2026, 6, 21)),
+        ];
+
+        let transaction_refs = transactions.iter().collect::<Vec<_>>();
+        assert_eq!(
+            cycle_collection_rate("weekly", 75.0, 2, 7, &transaction_refs, now),
+            50.0
+        );
+    }
+
+    #[test]
+    fn collection_rate_is_zero_safe_for_missing_members_or_amount() {
+        let now = at(2026, 6, 22);
+        let transactions = [transaction(1, 7, 100, "contribution", "completed", now)];
+
+        let transaction_refs = transactions.iter().collect::<Vec<_>>();
+        assert_eq!(
+            cycle_collection_rate("monthly", 100.0, 0, 7, &transaction_refs, now),
+            0.0
+        );
+        assert_eq!(
+            cycle_collection_rate("monthly", 0.0, 2, 7, &transaction_refs, now),
+            0.0
+        );
+    }
 }
