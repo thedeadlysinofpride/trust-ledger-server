@@ -7,6 +7,7 @@ mod m20260608_022801_groups_table;
 mod m20260608_024127_members_table;
 mod m20260608_025454_contributions_table;
 mod m20260608_030134_transactions_table;
+mod m20260622_000001_dashboard_transactions_index;
 pub struct Migrator;
 
 #[async_trait::async_trait]
@@ -18,7 +19,23 @@ impl MigratorTrait for Migrator {
             Box::new(m20260608_024127_members_table::Migration),
             Box::new(m20260608_025454_contributions_table::Migration),
             Box::new(m20260608_030134_transactions_table::Migration),
+            Box::new(m20260622_000001_dashboard_transactions_index::Migration),
             // inject-above (do not remove this comment)
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dashboard_transaction_index_migration_is_registered() {
+        let migrations = Migrator::migrations();
+        assert_eq!(migrations.len(), 6);
+        assert_eq!(
+            migrations.last().expect("migration should exist").name(),
+            "m20260622_000001_dashboard_transactions_index"
+        );
     }
 }
