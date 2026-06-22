@@ -12,7 +12,7 @@ async fn demo_seed_populates_transaction_history() {
             .await
             .expect("demo seed should succeed");
 
-        let first_res = request.get("/api/transactions/").await;
+        let first_res = request.get("/api/transactions").await;
         assert_eq!(first_res.status_code(), 200);
         let first_transactions = first_res.json::<Vec<Transaction>>();
 
@@ -44,7 +44,7 @@ async fn demo_seed_populates_transaction_history() {
             .await
             .expect("second demo seed should be idempotent");
 
-        let second_res = request.get("/api/transactions/").await;
+        let second_res = request.get("/api/transactions").await;
         assert_eq!(second_res.status_code(), 200);
         let second_transactions = second_res.json::<Vec<Transaction>>();
 
