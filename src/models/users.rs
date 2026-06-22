@@ -225,13 +225,26 @@ impl Model {
     ) -> ModelResult<Self> {
         let txn = db.begin().await?;
 
+        let user = Self::create_with_password_in(&txn, params).await?;
+
+        txn.commit().await?;
+
+        Ok(user)
+    }
+
+    /// Creates a user with a hashed password using the caller's connection or
+    /// transaction. Callers own the surrounding transaction lifecycle.
+    pub async fn create_with_password_in<C>(db: &C, params: &RegisterParams) -> ModelResult<Self>
+    where
+        C: ConnectionTrait,
+    {
         if users::Entity::find()
             .filter(
                 model::query::condition()
                     .eq(users::Column::Email, &params.email)
                     .build(),
             )
-            .one(&txn)
+            .one(db)
             .await?
             .is_some()
         {
@@ -240,18 +253,15 @@ impl Model {
 
         let password_hash =
             hash::hash_password(&params.password).map_err(|e| ModelError::Any(e.into()))?;
-        let user = users::ActiveModel {
+        users::ActiveModel {
             email: ActiveValue::set(params.email.to_string()),
             password: ActiveValue::set(password_hash),
             name: ActiveValue::set(params.name.to_string()),
             ..Default::default()
         }
-        .insert(&txn)
-        .await?;
-
-        txn.commit().await?;
-
-        Ok(user)
+        .insert(db)
+        .await
+        .map_err(ModelError::from)
     }
 
     /// Creates a JWT

@@ -375,9 +375,13 @@ const TRANSACTIONS: [TransactionSeed; 20] = [
 /// Populate the non-production demonstration dataset without touching unrelated rows.
 pub async fn run(db: &DatabaseConnection) -> Result<()> {
     let today = seed_anchor();
-    ensure_admin(db).await?;
+    let admin_exists = validate_demo_admin(db).await?;
 
     let transaction = db.begin().await?;
+    if !admin_exists {
+        User::create_with_password_in(&transaction, &demo_admin_params()).await?;
+    }
+
     let mut group_models = HashMap::new();
     for seed in &GROUPS {
         let model = upsert_group(&transaction, seed, today).await?;
@@ -412,7 +416,15 @@ pub async fn seed(db: &DatabaseConnection) -> Result<()> {
     run(db).await
 }
 
-async fn ensure_admin(db: &DatabaseConnection) -> Result<()> {
+fn demo_admin_params() -> RegisterParams {
+    RegisterParams {
+        email: "admin@trustledger.gh".to_owned(),
+        password: "Demo@2026".to_owned(),
+        name: "TrustLedger Demo Admin".to_owned(),
+    }
+}
+
+async fn validate_demo_admin(db: &DatabaseConnection) -> Result<bool> {
     let existing = users::Entity::find()
         .filter(users::Column::Email.eq("admin@trustledger.gh"))
         .one(db)
@@ -425,19 +437,10 @@ async fn ensure_admin(db: &DatabaseConnection) -> Result<()> {
                     .to_owned(),
             ));
         }
-        return Ok(());
+        return Ok(true);
     }
 
-    User::create_with_password(
-        db,
-        &RegisterParams {
-            email: "admin@trustledger.gh".to_owned(),
-            password: "Demo@2026".to_owned(),
-            name: "TrustLedger Demo Admin".to_owned(),
-        },
-    )
-    .await?;
-    Ok(())
+    Ok(false)
 }
 
 fn group_for<'a>(
