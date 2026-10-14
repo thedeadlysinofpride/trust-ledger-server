@@ -4,5 +4,6 @@ use trust_ledger_server::app::App;
 
 #[tokio::main]
 async fn main() -> loco_rs::Result<()> {
+    let _ = dotenvy::dotenv();
     cli::main::<App, Migrator>().await
 }
